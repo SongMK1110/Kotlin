@@ -1,6 +1,7 @@
 package com.app.kotlin.weather.controller
 
 import com.app.kotlin.common.ApiResponse
+import com.app.kotlin.weather.dto.weather.response.ResponseTomorrowWeatherDTO
 import com.app.kotlin.weather.dto.weather.response.ResponseWeatherInfoDTO
 import com.app.kotlin.weather.service.WeatherService
 import io.swagger.v3.oas.annotations.Operation
@@ -21,4 +22,5 @@ class WeatherController(private val weatherService: WeatherService) {
     ): ApiResponse<ResponseWeatherInfoDTO> {
         return ApiResponse.success(weatherService.weatherInfo(baseDate, baseTime, gridX, gridY))
     }
+
 }

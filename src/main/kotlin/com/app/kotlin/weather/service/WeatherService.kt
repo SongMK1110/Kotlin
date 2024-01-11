@@ -3,8 +3,7 @@ package com.app.kotlin.weather.service
 import com.app.kotlin.common.CustomException
 import com.app.kotlin.common.Grid
 import com.app.kotlin.weather.dto.public.response.*
-import com.app.kotlin.weather.dto.weather.response.ResponseWeatherDTO
-import com.app.kotlin.weather.dto.weather.response.ResponseWeatherInfoDTO
+import com.app.kotlin.weather.dto.weather.response.*
 import com.app.kotlin.weather.mapper.WeatherMapper
 import com.google.gson.Gson
 import org.json.XML
@@ -131,17 +130,415 @@ class WeatherService(private val weatherMapper: WeatherMapper) {
         val sunset = publicSunDTO.response.body.items.item.sunset
 
         // 단기 예보 정보
-        val shortTermWeatherApiUrl = shortTermWeatherApiUrl(baseDate, nx, ny)
+        val shortTermWeatherApiUrl = shortTermWeatherApiUrl(baseDate, "0500", nx, ny)
         val shortTermWeatherApi = fetchDataFromApi(shortTermWeatherApiUrl)
-        val publicShortTermWeatherDTO: PublicShortTermWeatherDTO = Gson().fromJson(shortTermWeatherApi, PublicShortTermWeatherDTO::class.java)
+        val publicShortTermWeatherDTO: PublicShortTermWeatherDTO =
+            Gson().fromJson(shortTermWeatherApi, PublicShortTermWeatherDTO::class.java)
         val hour = adjustToHour(baseTime)
         var sky = ""
+
+        var tmn = ""
+        var tmx = ""
+        var morningPop = 0
+        var afternoonPop = 0
+        var morningTmp = 100
+        var morningTmpTime = ""
+        var afternoonTmp = -100
+        var afternoonTmpTime = ""
+
+        var datTmn = ""
+        var datTmx = ""
+        var datMorningPop = 0
+        var datAfternoonPop = 0
+        var datMorningTmp = 100
+        var datMorningTmpTime = ""
+        var datAfternoonTmp = -100
+        var datAfternoonTmpTime = ""
+
         for (item in publicShortTermWeatherDTO.response.body.items.item) {
-            if(item.category == "SKY" && item.fcstTime == hour){
-                sky = item.fcstValue
-                break
+            when {
+                item.fcstTime == hour && item.category == "PTY" && item.fcstValue != "0" -> {
+                    sky = parsePty(item.fcstValue)
+                }
+
+                item.fcstTime == hour && item.category == "SKY" -> {
+                    sky = parseSky(item.fcstValue)
+                }
+
+                item.fcstDate == getAfterDate(baseDate, 1) -> {
+                    when (item.category) {
+                        "TMN" -> tmn = item.fcstValue.toDouble().toInt().toString()
+                        "TMX" -> tmx = item.fcstValue.toDouble().toInt().toString()
+                        "POP" -> {
+                            if (item.fcstTime.toInt() in 0..1100) {
+                                val currentPop = item.fcstValue.toIntOrNull() ?: continue
+                                morningPop = maxOf<Int>(morningPop, currentPop)
+                            } else if (item.fcstTime.toInt() in 1200..2300) {
+                                val currentPop = item.fcstValue.toIntOrNull() ?: continue
+                                afternoonPop = maxOf<Int>(afternoonPop, currentPop)
+                            }
+                        }
+                    }
+                }
+
+                item.fcstDate == getAfterDate(baseDate, 2) -> {
+                    when (item.category) {
+                        "TMN" -> datTmn = item.fcstValue.toDouble().toInt().toString()
+                        "TMX" -> datTmx = item.fcstValue.toDouble().toInt().toString()
+                        "POP" -> {
+                            if (item.fcstTime.toInt() in 0..1100) {
+                                val currentPop = item.fcstValue.toIntOrNull() ?: continue
+                                datMorningPop = maxOf<Int>(datMorningPop, currentPop)
+                            } else if (item.fcstTime.toInt() in 1200..2300) {
+                                val currentPop = item.fcstValue.toIntOrNull() ?: continue
+                                datAfternoonPop = maxOf<Int>(datAfternoonPop, currentPop)
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            /* // 강수 형태
+             if (item.fcstTime == hour && item.category == "PTY" && item.fcstValue != "0") {
+                 sky = parsePty(item.fcstValue)
+             }
+
+             // 하늘 상태
+             if (item.fcstTime == hour && item.category == "SKY") {
+                 sky = parseSky(item.fcstValue)
+             }
+
+             // 내일 최저 기온
+             if (item.fcstDate == getAfterDate(baseDate, 1) && item.category == "TMN") {
+                 tmn = item.fcstValue.toDouble().toInt().toString()
+             }
+
+             // 내일 최고 기온
+             if (item.fcstDate == getAfterDate(baseDate, 1) && item.category == "TMX") {
+                 tmx = item.fcstValue.toDouble().toInt().toString()
+             }
+
+             // 내일 오전 강수 확률
+             if (item.fcstDate == getAfterDate(
+                     baseDate,
+                     1
+                 ) && item.category == "POP" && item.fcstTime.toInt() in 0..1100
+             ) {
+                 val currentPop = item.fcstValue.toIntOrNull() ?: continue
+                 morningPop = maxOf<Int>(morningPop, currentPop)
+             }
+
+             // 내일 오후 강수 확률
+             if (item.fcstDate == getAfterDate(
+                     baseDate,
+                     1
+                 ) && item.category == "POP" && item.fcstTime.toInt() in 1200..2300
+             ) {
+                 val currentPop = item.fcstValue.toIntOrNull() ?: continue
+                 afternoonPop = maxOf<Int>(afternoonPop, currentPop)
+             }
+
+             // 내일 오전 최저 기온 시간
+             if (item.fcstDate == getAfterDate(
+                     baseDate,
+                     1
+                 ) && item.category == "TMP" && item.fcstTime.toInt() in 0..1100
+             ) {
+                 val currentTmp = item.fcstValue.toIntOrNull() ?: continue
+                 if (currentTmp <= morningTmp) {
+                     morningTmpTime = item.fcstTime
+                     morningTmp = currentTmp
+                 }
+             }
+
+             // 내일 오후 최저 기온 시간
+             if (item.fcstDate == getAfterDate(
+                     baseDate,
+                     1
+                 ) && item.category == "TMP" && item.fcstTime.toInt() in 1200..2300
+             ) {
+                 val currentTmp = item.fcstValue.toIntOrNull() ?: continue
+                 if (currentTmp >= afternoonTmp) {
+                     afternoonTmpTime = item.fcstTime
+                     afternoonTmp = currentTmp
+                 }
+             }
+
+             // 모레 최저 기온
+             if (item.fcstDate == getAfterDate(baseDate, 2) && item.category == "TMN") {
+                 datTmn = item.fcstValue.toDouble().toInt().toString()
+             }
+
+             // 모레 최고 기온
+             if (item.fcstDate == getAfterDate(baseDate, 2) && item.category == "TMX") {
+                 datTmx = item.fcstValue.toDouble().toInt().toString()
+             }
+
+             // 모레 오전 강수 확률
+             if (item.fcstDate == getAfterDate(
+                     baseDate,
+                     2
+                 ) && item.category == "POP" && item.fcstTime.toInt() in 0..1100
+             ) {
+                 val currentPop = item.fcstValue.toIntOrNull() ?: continue
+                 datMorningPop = maxOf<Int>(datMorningPop, currentPop)
+             }
+
+             // 모레 오후 강수 확률
+             if (item.fcstDate == getAfterDate(
+                     baseDate,
+                     2
+                 ) && item.category == "POP" && item.fcstTime.toInt() in 1200..2300
+             ) {
+                 val currentPop = item.fcstValue.toIntOrNull() ?: continue
+                 datAfternoonPop = maxOf<Int>(datAfternoonPop, currentPop)
+             }
+
+             // 모레 오전 최저 기온 시간
+             if (item.fcstDate == getAfterDate(
+                     baseDate,
+                     2
+                 ) && item.category == "TMP" && item.fcstTime.toInt() in 0..1100
+             ) {
+                 val currentTmp = item.fcstValue.toIntOrNull() ?: continue
+                 if (currentTmp <= datMorningTmp) {
+                     datMorningTmpTime = item.fcstTime
+                     datMorningTmp = currentTmp
+                 }
+             }
+
+             // 모레 오후 최저 기온 시간
+             if (item.fcstDate == getAfterDate(
+                     baseDate,
+                     2
+                 ) && item.category == "TMP" && item.fcstTime.toInt() in 1200..2300
+             ) {
+                 val currentTmp = item.fcstValue.toIntOrNull() ?: continue
+                 if (currentTmp >= datAfternoonTmp) {
+                     datAfternoonTmpTime = item.fcstTime
+                     datAfternoonTmp = currentTmp
+                 }
+             }*/
+
+        }
+
+        for (item in publicShortTermWeatherDTO.response.body.items.item) {
+            if (item.fcstDate == getAfterDate(
+                    baseDate,
+                    1
+                ) && item.category == "TMP" && item.fcstTime.toInt() in 0..1100
+            ) {
+                val currentTmp = item.fcstValue.toIntOrNull() ?: continue
+                if (currentTmp <= morningTmp) {
+                    morningTmpTime = item.fcstTime
+                    morningTmp = currentTmp
+                }
+            }
+
+            // 내일 오후 최저 기온 시간
+            if (item.fcstDate == getAfterDate(
+                    baseDate,
+                    1
+                ) && item.category == "TMP" && item.fcstTime.toInt() in 1200..2300
+            ) {
+                val currentTmp = item.fcstValue.toIntOrNull() ?: continue
+                if (currentTmp >= afternoonTmp) {
+                    afternoonTmpTime = item.fcstTime
+                    afternoonTmp = currentTmp
+                }
+            }
+
+            if (item.fcstDate == getAfterDate(
+                    baseDate,
+                    2
+                ) && item.category == "TMP" && item.fcstTime.toInt() in 0..1100
+            ) {
+                val currentTmp = item.fcstValue.toIntOrNull() ?: continue
+                if (currentTmp <= datMorningTmp) {
+                    datMorningTmpTime = item.fcstTime
+                    datMorningTmp = currentTmp
+                }
+            }
+
+            // 모레 오후 최저 기온 시간
+            if (item.fcstDate == getAfterDate(
+                    baseDate,
+                    2
+                ) && item.category == "TMP" && item.fcstTime.toInt() in 1200..2300
+            ) {
+                val currentTmp = item.fcstValue.toIntOrNull() ?: continue
+                if (currentTmp >= datAfternoonTmp) {
+                    datAfternoonTmpTime = item.fcstTime
+                    datAfternoonTmp = currentTmp
+                }
             }
         }
+
+        var morningSky = ""
+        var afternoonSky = ""
+        var datMorningSky = ""
+        var datAfternoonSky = ""
+        for (item in publicShortTermWeatherDTO.response.body.items.item) {
+
+            // 내일 오전 날씨 상태
+            if (item.fcstDate == getAfterDate(
+                    baseDate,
+                    1
+                ) && item.category == "SKY" && item.fcstTime == morningTmpTime
+            ) {
+                morningSky = item.fcstValue
+            }
+
+            // 내일 오후 날씨 상태
+            if (item.fcstDate == getAfterDate(
+                    baseDate,
+                    1
+                ) && item.category == "SKY" && item.fcstTime == afternoonTmpTime
+            ) {
+                afternoonSky = item.fcstValue
+            }
+
+            // 모레 오전 날씨 상태
+            if (item.fcstDate == getAfterDate(
+                    baseDate,
+                    2
+                ) && item.category == "SKY" && item.fcstTime == datMorningTmpTime
+            ) {
+                datMorningSky = item.fcstValue
+            }
+
+            // 모레 오후 날씨 상태
+            if (item.fcstDate == getAfterDate(
+                    baseDate,
+                    2
+                ) && item.category == "SKY" && item.fcstTime == datAfternoonTmpTime
+            ) {
+                datAfternoonSky = item.fcstValue
+            }
+        }
+
+
+        val dustForecastApiUrl = dustForecastApiUrl(formatDate(baseDate))
+        val dustForecastApi = fetchDataFromApi(dustForecastApiUrl)
+        val publicDustForecastDTO: PublicDustForecastDTO =
+            Gson().fromJson(dustForecastApi, PublicDustForecastDTO::class.java)
+
+        val dustForecastAfterDate = getAfterDate(baseDate, 1)
+        val dustForecastParseDate = formatDate(dustForecastAfterDate)
+        var dustForecastPm10Val = "-"
+        var dustForecastPm25Val = "-"
+
+        for (item in publicDustForecastDTO.response.body.items) {
+            // 내일 미세먼지 등급
+            if (item.informData == dustForecastParseDate) {
+                when (item.informCode) {
+                    "PM10" -> {
+                        dustForecastPm10Val = item.informGrade
+                        if (dustForecastPm25Val != "-") break
+                    }
+
+                    "PM25" -> {
+                        dustForecastPm25Val = item.informGrade
+                        if (dustForecastPm10Val != "-") break
+                    }
+                }
+            }
+        }
+
+        val regionGrade10Map = dustForecastPm10Val
+            .split(",")
+            .map { it.split(":") }
+            .filter { it.size == 2 }
+            .associate { (region, grade) -> region.trim() to grade.trim() }
+
+        val regionGrade25Map = dustForecastPm25Val
+            .split(",")
+            .map { it.split(":") }
+            .filter { it.size == 2 }
+            .associate { (region, grade) -> region.trim() to grade.trim() }
+
+        var dustForecastPm10 = regionGrade10Map["서울"]
+        var dustForecastPm25 = regionGrade25Map["서울"]
+
+        if (dustForecastPm10 == null) {
+            dustForecastPm10 = "-"
+        }
+
+        if (dustForecastPm25 == null) {
+            dustForecastPm25 = "-"
+        }
+
+        val datDustForecastAfterDate = getAfterDate(baseDate, 2)
+        val datDustForecastParseDate = formatDate(datDustForecastAfterDate)
+        var datDustForecastPm10Val = "-"
+        var datDustForecastPm25Val = "-"
+
+        for (item in publicDustForecastDTO.response.body.items) {
+            // 내일 미세먼지 등급
+            if (item.informData == datDustForecastParseDate) {
+                when (item.informCode) {
+                    "PM10" -> {
+                        datDustForecastPm10Val = item.informGrade
+                        if (datDustForecastPm25Val != "-") break
+                    }
+
+                    "PM25" -> {
+                        datDustForecastPm25Val = item.informGrade
+                        if (datDustForecastPm10Val != "-") break
+                    }
+                }
+            }
+        }
+
+        val datRegionGrade10Map = datDustForecastPm10Val
+            .split(",")
+            .map { it.split(":") }
+            .filter { it.size == 2 }
+            .associate { (region, grade) -> region.trim() to grade.trim() }
+
+        val datRegionGrade25Map = datDustForecastPm25Val
+            .split(",")
+            .map { it.split(":") }
+            .filter { it.size == 2 }
+            .associate { (region, grade) -> region.trim() to grade.trim() }
+
+        var datDustForecastPm10 = datRegionGrade10Map["서울"]
+        var datDustForecastPm25 = datRegionGrade25Map["서울"]
+
+        if (datDustForecastPm10 == null) {
+            datDustForecastPm10 = "-"
+        }
+
+        if (datDustForecastPm25 == null) {
+            datDustForecastPm25 = "-"
+        }
+
+        val time: String = adjustToHour(getPlusTime(baseTime, 60))
+        val date: String = baseDate
+        println("time $time")
+
+        // 현재 시간 이후 시간 데이터 추출
+        val currentAndLaterItems = publicShortTermWeatherDTO.response.body.items.item
+            .filter { it.fcstDate == date && it.fcstTime.toInt() >= time.toInt() && (it.category == "TMP" || it.category == "SKY") }
+            .groupBy { it.fcstDate to it.fcstTime }
+            .mapNotNull { (key, items) ->
+                val tmp = items.find { it.category == "TMP" }?.fcstValue ?: return@mapNotNull null
+                val sky = items.find { it.category == "SKY" }?.fcstValue ?: return@mapNotNull null
+                ResponseShortTermWeatherDTO(tmp =  tmp, sky = parseSky(sky), date = key.first, time = key.second.dropLast(2))
+            }
+
+        // 내일, 모레 데이터 추출
+        val tomorrowAndDatItems = publicShortTermWeatherDTO.response.body.items.item
+            .filter { it.fcstDate >= getAfterDate(baseDate, 1) }
+            .groupBy { it.fcstDate to it.fcstTime }
+            .mapNotNull { (key, items) ->
+                val tmp = items.find { it.category == "TMP" }?.fcstValue ?: return@mapNotNull null
+                val sky = items.find { it.category == "SKY" }?.fcstValue ?: return@mapNotNull null
+                ResponseShortTermWeatherDTO(tmp =  tmp, sky = parseSky(sky), date = key.first, time = key.second.dropLast(2))
+            }
+
+        val shortTermWeatherList = currentAndLaterItems + tomorrowAndDatItems
 
         val responseWeatherDTO = ResponseWeatherDTO(
             currentTemp = currentTemp,
@@ -154,30 +551,67 @@ class WeatherService(private val weatherMapper: WeatherMapper) {
             tempComparison = tempComparison,
             uv = parseUV(uv),
             sunset = formatTime(sunset),
-            sky = parseSky(sky.toInt())
+            sky = sky
         )
 
-        return ResponseWeatherInfoDTO(responseWeatherDTO)
+        val responseTomorrowWeatherDTO = ResponseTomorrowWeatherDTO(
+            morningTemp = tmn,
+            morningSky = parseSky(morningSky),
+            morningPoP = morningPop.toString(),
+            morningPm10Grade = dustForecastPm10,
+            morningPm25Grade = dustForecastPm25,
+            afternoonTemp = tmx,
+            afternoonSky = parseSky(afternoonSky),
+            afternoonPoP = afternoonPop.toString(),
+            afternoonPm10Grade = dustForecastPm10,
+            afternoonPm25Grade = dustForecastPm25
+        )
+
+        val responseDatWeatherDTO = ResponseDatWeatherDTO(
+            morningTemp = datTmn,
+            morningSky = parseSky(datMorningSky),
+            morningPoP = datMorningPop.toString(),
+            morningPm10Grade = datDustForecastPm10,
+            morningPm25Grade = datDustForecastPm25,
+            afternoonTemp = datTmx,
+            afternoonSky = parseSky(datAfternoonSky),
+            afternoonPoP = datAfternoonPop.toString(),
+            afternoonPm10Grade = datDustForecastPm10,
+            afternoonPm25Grade = datDustForecastPm25
+        )
+
+        return ResponseWeatherInfoDTO(responseWeatherDTO, responseTomorrowWeatherDTO, responseDatWeatherDTO, shortTermWeatherList)
     }
 
     // 하늘 상태
-    fun parseSky(sky: Int): String {
-        return when {
-            sky >= 9 -> "흐림"
-            sky >= 6 -> "구름맑음"
-            sky >= 0 -> "맑음"
+    fun parseSky(sky: String): String {
+        return when (sky) {
+            "4" -> "흐림"
+            "3" -> "구름많음"
+            "1" -> "맑음"
+            else -> "알 수 없음"
+        }
+    }
+
+    // 강수 상태
+    fun parsePty(sky: String): String {
+        return when (sky) {
+            "1" -> "비"
+            "2" -> "비/눈"
+            "3" -> "눈"
+            "4" -> "소나기"
             else -> "알 수 없음"
         }
     }
 
     // 등급 계산 (미세먼지, 초미세먼지)
-    fun parseGrade(grade: String): String {
+    fun parseGrade(grade: String?): String {
         return when (grade) {
             "1" -> "좋음"
             "2" -> "보통"
             "3" -> "나쁨"
             "4" -> "매우나쁨"
-            else -> "알 수 없음"
+            else -> "-"
         }
     }
 
@@ -255,12 +689,29 @@ class WeatherService(private val weatherMapper: WeatherMapper) {
         return formatter.format(previousDate)
     }
 
+    // 다음 날
+    fun getAfterDate(inputDate: String, plusDate: Long): String {
+        val formatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+        val date = LocalDate.parse(inputDate, formatter)
+        val afterDate = date.plusDays(plusDate)
+
+        return formatter.format(afterDate)
+    }
+
     // 일몰 시간 포맷
     fun formatTime(inputTime: String): String {
         val formatter = DateTimeFormatter.ofPattern("HHmm")
         val parsedTime = LocalTime.parse(inputTime, formatter)
         val formattedTime = DateTimeFormatter.ofPattern("HH:mm").format(parsedTime)
         return formattedTime
+    }
+
+    // 날짜 포맷
+    fun formatDate(inputDate: String): String {
+        val formatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+        val parsedDate = LocalDate.parse(inputDate, formatter)
+        val formattedDate = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(parsedDate)
+        return formattedDate
     }
 
     // ex) 13:10 -> 13:00
@@ -364,17 +815,27 @@ class WeatherService(private val weatherMapper: WeatherMapper) {
     }
 
     // 단기예보 API
-    fun shortTermWeatherApiUrl(date: String, nx: Int?, ny: Int?): String {
+    fun shortTermWeatherApiUrl(date: String, time: String, nx: Int?, ny: Int?): String {
         return "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst" +
                 "?${URLEncoder.encode("serviceKey", StandardCharsets.UTF_8)}=$key" +
                 "&${URLEncoder.encode("pageNo", StandardCharsets.UTF_8)}=1" +
                 "&${URLEncoder.encode("numOfRows", StandardCharsets.UTF_8)}=1000" +
                 "&${URLEncoder.encode("dataType", StandardCharsets.UTF_8)}=json" +
                 "&${URLEncoder.encode("base_date", StandardCharsets.UTF_8)}=$date" +
-                "&${URLEncoder.encode("base_time", StandardCharsets.UTF_8)}=0500" +
+                "&${URLEncoder.encode("base_time", StandardCharsets.UTF_8)}=$time" +
                 "&${URLEncoder.encode("nx", StandardCharsets.UTF_8)}=$nx" +
                 "&${URLEncoder.encode("ny", StandardCharsets.UTF_8)}=$ny"
 
+    }
+
+    fun dustForecastApiUrl(date: String): String {
+        return "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMinuDustFrcstDspth" +
+                "?${URLEncoder.encode("serviceKey", StandardCharsets.UTF_8)}=$key" +
+                "&${URLEncoder.encode("returnType", StandardCharsets.UTF_8)}=json" +
+                "&${URLEncoder.encode("numOfRows", StandardCharsets.UTF_8)}=100" +
+                "&${URLEncoder.encode("pageNo", StandardCharsets.UTF_8)}=1" +
+                "&${URLEncoder.encode("searchDate", StandardCharsets.UTF_8)}=$date" +
+                "&${URLEncoder.encode("InformCode", StandardCharsets.UTF_8)}=PM10"
     }
 
 }
