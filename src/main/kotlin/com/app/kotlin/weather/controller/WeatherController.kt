@@ -2,6 +2,7 @@ package com.app.kotlin.weather.controller
 
 import com.app.kotlin.common.ApiResponse
 import com.app.kotlin.weather.dto.weather.response.ResponseMonthlyWeatherDTO
+import com.app.kotlin.weather.dto.weather.response.ResponseMonthlyWeatherInfoDTO
 import com.app.kotlin.weather.dto.weather.response.ResponseTomorrowWeatherDTO
 import com.app.kotlin.weather.dto.weather.response.ResponseWeatherInfoDTO
 import com.app.kotlin.weather.service.WeatherService
@@ -11,12 +12,13 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-class WeatherController(private val weatherService: WeatherService) {
+class WeatherController @Autowired constructor(private val weatherService: WeatherService) {
 
     @GetMapping("/weather-info")
     @Operation(summary = "일간 예보 정보 조회")
@@ -29,9 +31,10 @@ class WeatherController(private val weatherService: WeatherService) {
         return ApiResponse.success(weatherService.weatherInfo(baseDate, baseTime, gridX, gridY))
     }
 
-    @GetMapping("/test")
-    fun test(): List<ResponseMonthlyWeatherDTO> {
-        return weatherService.test()
+    @GetMapping("/monthly-weather-info")
+    @Operation(summary = "월간 예보 정보 조회")
+    fun monthlyWeatherInfo(): ResponseMonthlyWeatherInfoDTO {
+        return weatherService.monthlyWeatherInfo()
     }
 
 }

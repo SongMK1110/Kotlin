@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.app.kotlin.weather.mapper.WeatherMapper">
-    <select id="test" resultType="ResponseMonthlyWeatherDTO">
-        SELECT  w.month as month,
-                w.title as mTitle,
-                wd.week as week,
-                wd.title as wTitle,
-                wd.content as content
-        FROM    weather w INNER JOIN weather_detail wd
-        ON      w.month = wd.month
-        where   1=1
-        and     w.month = 1
+
+    <select id="monthlyWeather" resultType="ResponseSelectMonthlyWeatherDTO">
+        SELECT  title,
+                month
+        FROM    weather
+    </select>
+
+    <select id="weeklyWeather" resultType="ResponseWeeklyWeatherDTO">
+        SELECT  title,
+                duration,
+                content,
+                avg_temperature,
+                avg_precipitation
+        FROM    weather_detail
+        WHERE   month = #{month}
     </select>
 </mapper>

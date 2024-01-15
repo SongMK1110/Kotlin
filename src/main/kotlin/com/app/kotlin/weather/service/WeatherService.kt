@@ -7,6 +7,7 @@ import com.app.kotlin.weather.dto.weather.response.*
 import com.app.kotlin.weather.mapper.WeatherMapper
 import com.google.gson.Gson
 import org.json.XML
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.io.BufferedReader
@@ -22,7 +23,7 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.pow
 
 @Service
-class WeatherService(private val weatherMapper: WeatherMapper) {
+class WeatherService @Autowired constructor(private val weatherMapper: WeatherMapper) {
 
     @Value("\${public-service-key}")
     private val key = ""
@@ -227,7 +228,6 @@ class WeatherService(private val weatherMapper: WeatherMapper) {
                     }
                 }
             }
-
 
             /* // 강수 형태
              if (item.fcstTime == hour && item.category == "PTY" && item.fcstValue != "0") {
@@ -732,8 +732,15 @@ class WeatherService(private val weatherMapper: WeatherMapper) {
         )
     }
 
-    fun test(): List<ResponseMonthlyWeatherDTO> {
-        return weatherMapper.test()
+
+    fun monthlyWeatherInfo(): ResponseMonthlyWeatherInfoDTO {
+        val monthlyWeatherList = weatherMapper.monthlyWeather().map { item ->
+            ResponseMonthlyWeatherDTO(
+                title = item.title,
+                weeklyWeatherInfo = weatherMapper.weeklyWeather(item.month)
+            )
+        }
+        return ResponseMonthlyWeatherInfoDTO(monthlyWeatherInfo = monthlyWeatherList)
     }
 
 
