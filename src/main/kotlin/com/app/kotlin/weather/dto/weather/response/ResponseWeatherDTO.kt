@@ -88,9 +88,29 @@ data class ResponseShortTermWeatherDTO(
     val date: String
 )
 
+@Schema(description = "시간 별 강수 정보 응답 DTO")
+data class ResponseShortTermRainDTO(
+    @Schema(description = "강수 확률")
+    val pop: String,
+    @Schema(description = "강수량")
+    val pcp: String,
+    @Schema(description = "시간")
+    val time: String,
+    @Schema(description = "날짜")
+    val date: String
+)
+
+@Schema(description = "주소 정보 응답 DTO")
+data class ResponseAddressDTO(
+    @Schema(description = "주소")
+    val address: String
+)
+
 
 @Schema(description = "날씨 정보")
 data class ResponseWeatherInfoDTO(
+    @Schema(description = "주소 정보")
+    val addressInfo: ResponseAddressDTO,
     @Schema(description = "날씨 정보")
     val weatherInfo: ResponseWeatherDTO,
     @Schema(description = "내일 날씨 정보")
@@ -98,6 +118,7 @@ data class ResponseWeatherInfoDTO(
     @Schema(description = "모레 날씨 정보")
     val datWeatherInfo: ResponseDatWeatherDTO,
     @Schema(description = "시간 별 날씨 정보")
-    val shortTermWeatherInfo: List<ResponseShortTermWeatherDTO>?
-
+    val shortTermWeatherInfo: List<ResponseShortTermWeatherDTO>,
+    @Schema(description = "시간 별 강수 정보")
+    val shortTermRainInfo: List<ResponseShortTermRainDTO>
 )

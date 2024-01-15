@@ -17,12 +17,12 @@ class APIExceptionHandler {
     @ResponseStatus(HttpStatus.OK)
     fun handleCustomException(ex: CustomException): ApiResponse<String> {
         log.error("CustomException: ${ex.stackTraceToString()}")
-        if (ex.message == "20") {
-            return ApiResponse.error(ErrorCode.NO_DATA)
-        } else if (ex.message == "30") {
-            return ApiResponse.error(ErrorCode.CURRENT_DAY)
+        return when (ex.message) {
+            "20" -> ApiResponse.error(ErrorCode.NO_DATA)
+            "30" -> ApiResponse.error(ErrorCode.CURRENT_DAY)
+            "100" -> ApiResponse.error(ErrorCode.PUBLIC_API_ERROR)
+            else -> ApiResponse.error(ErrorCode.FAIL)
         }
-        return ApiResponse.error(ErrorCode.FAIL)
     }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)

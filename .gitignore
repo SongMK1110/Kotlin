@@ -38,3 +38,4 @@ out/
 
 # Ignore API key property file
 application-API-KEY.properties
+application.properties
