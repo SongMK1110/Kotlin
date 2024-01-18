@@ -3,6 +3,7 @@ package com.app.kotlin
 import org.mybatis.spring.annotation.MapperScan
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
+import org.springframework.scheduling.annotation.EnableAsync
 
 @SpringBootApplication
 @MapperScan("com.app.kotlin.**.mapper")

@@ -44,8 +44,9 @@ dependencies {
     implementation ("io.github.microutils:kotlin-logging:3.0.5")
     // https://mvnrepository.com/artifact/org.json/json
     implementation("org.json:json:20231013")
-    // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.5.2")
+
 }
 
 tasks.withType<KotlinCompile> {

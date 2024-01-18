@@ -6,9 +6,13 @@ import com.app.kotlin.weather.dto.public.response.*
 import com.app.kotlin.weather.dto.weather.response.*
 import com.app.kotlin.weather.mapper.WeatherMapper
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import org.json.XML
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.json.JsonParseException
 import org.springframework.stereotype.Service
 import java.io.BufferedReader
 import java.io.IOException
@@ -21,6 +25,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 @Service
 class WeatherService @Autowired constructor(private val weatherMapper: WeatherMapper) {
@@ -32,27 +37,180 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
     private val kakaoKey = ""
 
     fun weatherInfo(baseDate: String, baseTime: String, gridX: Double, gridY: Double): ResponseWeatherInfoDTO {
+        val startTime = System.currentTimeMillis()
         val result = Grid.dfsXyConv("toXY", gridX, gridY)
         val nx: Int? = result["x"]?.toInt()
         val ny: Int? = result["y"]?.toInt()
         val minusMinutes = getMinusTime(baseTime, 40)
 
-        // 카카오 주소 정보
+        val yesterdayDate = getPreviousDate(baseDate, 1)
+        val yesterdayTime = getPlusTime(baseTime, 40)
+
+        val uvTime = baseDate + baseTime.substring(0, 2)
+
+        val shortTermTime = getMinusTime(getTimeRange(baseTime), 180)
+
+        // 동기
+        /*val syncTotalStartTime = System.currentTimeMillis()
+        var syncStartTime = System.currentTimeMillis()
         val kakaoMapApiUrl = kakaoAddressApiUrl(gridX, gridY)
         val kakaoMapApi = fetchDataFromApi(kakaoMapApiUrl, "kakao")
+        var syncEndTime = System.currentTimeMillis()
+        println("sync kakao : ${syncEndTime - syncStartTime} milliseconds")
+        syncStartTime = System.currentTimeMillis()
+        val weatherApiUrl = weatherApiUrl(baseDate, minusMinutes, nx, ny)
+        val weatherApi = fetchDataFromApi(weatherApiUrl)
+        syncEndTime = System.currentTimeMillis()
+        println("sync weather : ${syncEndTime - syncStartTime} milliseconds")
+        syncStartTime = System.currentTimeMillis()
+        val yesterdayWeatherApiUrl = weatherApiUrl(yesterdayDate, yesterdayTime, nx, ny)
+        val yesterdayWeatherApi = fetchDataFromApi(yesterdayWeatherApiUrl)
+        syncEndTime = System.currentTimeMillis()
+        println("sync yesterday : ${syncEndTime - syncStartTime} milliseconds")
+        syncStartTime = System.currentTimeMillis()
+        val dustApiUrl = dustApiUrl()
+        val dustApi = fetchDataFromApi(dustApiUrl)
+        syncEndTime = System.currentTimeMillis()
+        println("sync dust : ${syncEndTime - syncStartTime} milliseconds")
+        syncStartTime = System.currentTimeMillis()
+        val uvApiUrl = uvApiUrl(uvTime)
+        val uvApi = fetchDataFromApi(uvApiUrl)
+        syncEndTime = System.currentTimeMillis()
+        println("sync UV : ${syncEndTime - syncStartTime} milliseconds")
+        syncStartTime = System.currentTimeMillis()
+        val sunApiUrl = sunApiUrl(baseDate, gridX, gridY)
+        val sunApi = fetchDataFromApi(sunApiUrl)
+        syncEndTime = System.currentTimeMillis()
+        println("sync sunset : ${syncEndTime - syncStartTime} milliseconds")
+        syncStartTime = System.currentTimeMillis()
+        val shortTermWeatherApiUrl = shortTermWeatherApiUrl(baseDate, shortTermTime, nx, ny)
+        val shortTermWeatherApi = fetchDataFromApi(shortTermWeatherApiUrl)
+        syncEndTime = System.currentTimeMillis()
+        println("sync short term weather : ${syncEndTime - syncStartTime} milliseconds")
+        val syncTotalEndTime = System.currentTimeMillis()
+        println("sync total time : ${syncTotalEndTime - syncTotalStartTime} milliseconds")*/
+
+
+        var kakaoMapApi: String
+        var weatherApi: String
+        var yesterdayWeatherApi: String
+        var dustApi: String
+        var uvApi: String
+        var sunApi: String
+        var shortTermWeatherApi: String
+
+        runBlocking {
+            val startTime1 = System.currentTimeMillis()
+            val kakaoMapApiDeferred = async(Dispatchers.IO) {
+                val sTime = System.currentTimeMillis()
+
+                val kakaoMapApiUrl = kakaoAddressApiUrl(gridX, gridY)
+                val res = fetchDataFromApi(kakaoMapApiUrl, "kakao")
+
+                val eTime = System.currentTimeMillis()
+                println("async kakao: ${eTime - sTime} milliseconds")
+
+                res
+
+            }
+
+            val weatherApiDeferred = async(Dispatchers.IO) {
+                val sTime = System.currentTimeMillis()
+
+                val weatherApiUrl = weatherApiUrl(baseDate, minusMinutes, nx, ny)
+                val res = fetchDataFromApi(weatherApiUrl)
+
+                val eTime = System.currentTimeMillis()
+                println("async weather: ${eTime - sTime} milliseconds")
+
+                res
+            }
+
+            val yesterdayWeatherApiDeferred = async(Dispatchers.IO) {
+                val sTime = System.currentTimeMillis()
+
+                val yesterdayWeatherApiUrl = weatherApiUrl(yesterdayDate, yesterdayTime, nx, ny)
+                val res = fetchDataFromApi(yesterdayWeatherApiUrl)
+
+                val eTime = System.currentTimeMillis()
+                println("async yesterday: ${eTime - sTime} milliseconds")
+
+                res
+            }
+
+            val dustApiDeferred = async(Dispatchers.IO) {
+                val sTime = System.currentTimeMillis()
+
+                val dustApiUrl = dustApiUrl()
+                val res = fetchDataFromApi(dustApiUrl)
+
+                val eTime = System.currentTimeMillis()
+                println("async dust: ${eTime - sTime} milliseconds")
+
+                res
+            }
+
+            val uvApiDeferred = async(Dispatchers.IO) {
+                val sTime = System.currentTimeMillis()
+
+                val uvApiUrl = uvApiUrl(uvTime)
+                val res = fetchDataFromApi(uvApiUrl)
+
+                val eTime = System.currentTimeMillis()
+                println("async UV: ${eTime - sTime} milliseconds")
+
+                res
+            }
+
+            val sunApiDeferred = async(Dispatchers.IO) {
+                val sTime = System.currentTimeMillis()
+
+                val sunApiUrl = sunApiUrl(baseDate, gridX, gridY)
+                val res = fetchDataFromApi(sunApiUrl)
+
+                val eTime = System.currentTimeMillis()
+                println("async sunset: ${eTime - sTime} milliseconds")
+
+                res
+            }
+
+            val shortTermWeatherDeferred = async(Dispatchers.IO) {
+                val sTime = System.currentTimeMillis()
+
+                val shortTermWeatherApiUrl = shortTermWeatherApiUrl(baseDate, shortTermTime, nx, ny)
+                val res = fetchDataFromApi(shortTermWeatherApiUrl)
+
+                val eTime = System.currentTimeMillis()
+                println("async short term weather: ${eTime - sTime} milliseconds")
+
+                res
+            }
+
+
+            kakaoMapApi = kakaoMapApiDeferred.await()
+            weatherApi = weatherApiDeferred.await()
+            yesterdayWeatherApi = yesterdayWeatherApiDeferred.await()
+            dustApi = dustApiDeferred.await()
+            uvApi = uvApiDeferred.await()
+            sunApi = sunApiDeferred.await()
+            shortTermWeatherApi = shortTermWeatherDeferred.await()
+
+            val endTime = System.currentTimeMillis()
+            println("async total time: ${endTime - startTime1} milliseconds")
+        }
+
+
+        // 카카오 주소 정보
         val kakaoMapDTO: PublicKakaoMapDTO = Gson().fromJson(kakaoMapApi, PublicKakaoMapDTO::class.java)
         val address = kakaoMapDTO.documents[1].address_name
 
         // 일간 예보 정보
-        val weatherApiUrl = weatherApiUrl(baseDate, minusMinutes, nx, ny)
-        val weatherApi = fetchDataFromApi(weatherApiUrl)
         val publicDTO: PublicDTO = Gson().fromJson(weatherApi, PublicDTO::class.java)
         if (publicDTO.response.header.resultCode == "03") {
             throw CustomException("20")
         } else if (publicDTO.response.header.resultCode == "10") {
             throw CustomException("30")
         }
-
 
         var currentTemp = ""
         var humidity = ""
@@ -83,15 +241,9 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
         windDirection = parseWindDirection(windDirection)
 
         // 전날 기온
-        val yesterdayDate = getPreviousDate(baseDate, 1)
-        val yesterdayTime = getPlusTime(baseTime, 40)
-        val yesterdayWeatherApiUrl = weatherApiUrl(yesterdayDate, yesterdayTime, nx, ny)
-        val yesterdayWeatherApi = fetchDataFromApi(yesterdayWeatherApiUrl)
         val yesterdayPublicDTO: PublicDTO = Gson().fromJson(yesterdayWeatherApi, PublicDTO::class.java)
-        if (yesterdayPublicDTO.response.header.resultCode == "03") {
-            throw CustomException("20")
-        } else if (yesterdayPublicDTO.response.header.resultCode == "10") {
-            throw CustomException("30")
+        if (yesterdayPublicDTO.response.header.resultCode != "00") {
+            throw CustomException("100")
         }
 
         var yesterdayTemp = ""
@@ -104,19 +256,26 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
         }
 
         val tempComparison = String.format("%.1f", (currentTemp.toDouble() - yesterdayTemp.toDouble()))
-
-        // 미세먼지 정보
-        val dustApiUrl = dustApiUrl()
-        val dustApi = fetchDataFromApi(dustApiUrl)
-        val publicDustDTO: PublicDustDTO = Gson().fromJson(dustApi, PublicDustDTO::class.java)
-        if (publicDustDTO.response.header.resultCode == "03") {
-            throw CustomException("20")
-        } else if (publicDTO.response.header.resultCode == "10") {
-            throw CustomException("30")
-        }
-
         var pm10Grade = ""
         var pm25Grade = ""
+
+        // 미세먼지 정보
+//        val publicDustDTO: PublicDustDTO = Gson().fromJson(dustApi, PublicDustDTO::class.java)
+//        println(publicDustDTO)
+//        if (publicDustDTO.response.header.resultCode != "00") {
+//            pm10Grade = "-"
+//            pm25Grade = "-"
+//        }
+        val publicDustDTO: PublicDustDTO = Gson().fromJson(dustApi, PublicDustDTO::class.java)
+
+//        try {
+//            publicDustDTO = Gson().fromJson(dustApi, PublicDustDTO::class.java)
+//        } catch (e: Exception) {
+//            pm10Grade = "-"
+//            pm25Grade = "-"
+//        } catch (e: IllegalStateException) {
+//            throw CustomException("100")
+//        }
 
         for (item in publicDustDTO.response.body.items) {
             when (item.stationName) {
@@ -128,9 +287,6 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
         }
 
         // 자외선 정보
-        val uvTime = baseDate + baseTime.substring(0, 2)
-        val uvApiUrl = uvApiUrl(uvTime)
-        val uvApi = fetchDataFromApi(uvApiUrl)
         val publicUVDTO: PublicUVDTO = Gson().fromJson(uvApi, PublicUVDTO::class.java)
         if (publicUVDTO.response.header.resultCode == "03") {
             throw CustomException("20")
@@ -143,21 +299,13 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
         }
 
         // 일몰 정보
-        val sunApiUrl = sunApiUrl(baseDate, gridX, gridY)
-        val sunApi = fetchDataFromApi(sunApiUrl)
         val xmlJSONObj: String = XML.toJSONObject(sunApi).toString()
         val publicSunDTO: PublicSunDTO = Gson().fromJson(xmlJSONObj, PublicSunDTO::class.java)
-        if (publicSunDTO.response.header.resultCode == "03") {
-            throw CustomException("20")
-        } else if (publicDTO.response.header.resultCode == "10") {
-            throw CustomException("30")
-        }
-        val sunset = publicSunDTO.response.body.items.item.sunset
+        val sunset: String = publicSunDTO.response?.body?.items?.item?.sunset ?: "-"
+
 
         // 단기 예보 정보
-        val shortTermTime = getMinusTime(getTimeRange(baseTime), 180)
-        val shortTermWeatherApiUrl = shortTermWeatherApiUrl(baseDate, shortTermTime, nx, ny)
-        val shortTermWeatherApi = fetchDataFromApi(shortTermWeatherApiUrl)
+
         val publicShortTermWeatherDTO: PublicShortTermWeatherDTO =
             Gson().fromJson(shortTermWeatherApi, PublicShortTermWeatherDTO::class.java)
         if (publicShortTermWeatherDTO.response.header.resultCode == "03") {
@@ -604,13 +752,12 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
             .groupBy { it.fcstDate to it.fcstTime }
             .mapNotNull { (key, items) ->
                 val pop = items.find { it.category == "POP" }?.fcstValue
-                var pcp = items.find { it.category == "PCP" }?.fcstValue
-
-                if (pcp == "강수없음") {
-                    pcp = "0"
-                } else if (pcp != null) {
-                    pcp = pcp.removeSuffix("mm").toDouble().toInt().toString()
-                }
+                val pcp = items.find { it.category == "PCP" }?.fcstValue?.let { parsePcp(it) }
+//                if (pcp == "강수없음") {
+//                    pcp = "0"
+//                } else if (pcp != null) {
+//                    pcp = pcp.removeSuffix("mm").toDouble().toInt().toString()
+//                }
 
                 if (pop != null && pcp != null) {
                     ResponseShortTermRainDTO(
@@ -722,6 +869,10 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
             afternoonPm25Grade = datDustForecastPm25
         )
 
+
+        val endTime = System.currentTimeMillis()
+        println("total : ${endTime - startTime} milliseconds")
+
         return ResponseWeatherInfoDTO(
             addressInfo = addressDTO,
             weatherInfo = responseWeatherDTO,
@@ -809,6 +960,16 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
         }
     }
 
+    // 강수량 변환
+    fun parsePcp(pcp: String): String {
+        return when {
+            pcp == "강수없음" -> "0"
+            pcp.removeSuffix("mm").toDouble() < 1 -> "~" + pcp.removeSuffix("mm").toDouble().toInt().toString()
+            pcp.removeSuffix("mm").toDouble() >= 1 -> pcp.removeSuffix("mm").toDouble().roundToInt().toString()
+            else -> "알 수 없음"
+        }
+    }
+
 
     // 체감 온도 계산
     fun parseWindChill(currentTemp: String, windVelocity: String): Double {
@@ -882,6 +1043,9 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
 
     // 일몰 시간 포맷
     fun formatTime(inputTime: String): String {
+        if (inputTime == "-") {
+            return "-"
+        }
         val formatter = DateTimeFormatter.ofPattern("HHmm")
         val parsedTime = LocalTime.parse(inputTime, formatter)
         val formattedTime = DateTimeFormatter.ofPattern("HH:mm").format(parsedTime)
@@ -928,7 +1092,6 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
             while (rd.readLine().also { line = it } != null) {
                 sb.append(line)
             }
-
             return sb.toString()
 
         } catch (e: IOException) {
