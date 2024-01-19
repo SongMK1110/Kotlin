@@ -12,7 +12,6 @@ import kotlinx.coroutines.runBlocking
 import org.json.XML
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.json.JsonParseException
 import org.springframework.stereotype.Service
 import java.io.BufferedReader
 import java.io.IOException
@@ -266,16 +265,14 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
 //            pm10Grade = "-"
 //            pm25Grade = "-"
 //        }
-        val publicDustDTO: PublicDustDTO = Gson().fromJson(dustApi, PublicDustDTO::class.java)
+        val publicDustDTO: PublicDustDTO
 
-//        try {
-//            publicDustDTO = Gson().fromJson(dustApi, PublicDustDTO::class.java)
-//        } catch (e: Exception) {
-//            pm10Grade = "-"
-//            pm25Grade = "-"
-//        } catch (e: IllegalStateException) {
-//            throw CustomException("100")
-//        }
+        try {
+            publicDustDTO = Gson().fromJson(dustApi, PublicDustDTO::class.java)
+        } catch (e: Exception) {
+            throw CustomException("100")
+
+        }
 
         for (item in publicDustDTO.response.body.items) {
             when (item.stationName) {
@@ -305,7 +302,6 @@ class WeatherService @Autowired constructor(private val weatherMapper: WeatherMa
 
 
         // 단기 예보 정보
-
         val publicShortTermWeatherDTO: PublicShortTermWeatherDTO =
             Gson().fromJson(shortTermWeatherApi, PublicShortTermWeatherDTO::class.java)
         if (publicShortTermWeatherDTO.response.header.resultCode == "03") {

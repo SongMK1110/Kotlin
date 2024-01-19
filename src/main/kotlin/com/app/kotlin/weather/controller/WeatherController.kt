@@ -33,8 +33,8 @@ class WeatherController @Autowired constructor(private val weatherService: Weath
 
     @GetMapping("/monthly-weather-info")
     @Operation(summary = "월간 예보 정보 조회")
-    fun monthlyWeatherInfo(): ResponseMonthlyWeatherInfoDTO {
-        return weatherService.monthlyWeatherInfo()
+    fun monthlyWeatherInfo(): ApiResponse<ResponseMonthlyWeatherInfoDTO> {
+        return ApiResponse.success(weatherService.monthlyWeatherInfo())
     }
 
 }
